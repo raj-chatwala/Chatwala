@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>ChatWala 💬 (Public & Private Rooms, Guests, Emojis)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCD9wKjeNoBu_X3kCoLkew0Or0EJWDm2zU",
+      authDomain: "chatwala-2fdab.firebaseapp.com",
+      projectId: "chatwala-2fdab",
+      storageBucket: "chatwala-2fdab.appspot.com",
+      messagingSenderId: "565068432534",
+      appId: "1:565068432534:web:9993944486a1344205aeb7"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    let currentRoom = "General";
+    let nickname = "";
+
+    window.startChat = () => {
+      nickname = document.getElementById("nickname").value.trim();
+      if (!nickname) return alert("Enter a name");
+      document.getElementById("loginModal").classList.remove("show");
+      document.getElementById("chatApp").classList.add("show");
+      loadMessages(currentRoom);
+    };
+
+    window.sendMessage = async () => {
+      const msgInput = document.getElementById("msg");
+      const text = msgInput.value.trim();
+      if (text) {
+        await addDoc(collection(db, "rooms", currentRoom, "messages"), {
+          text,
+          sender: nickname,
+          createdAt: serverTimestamp()
+        });
+        msgInput.value = "";
+      }
+    };
+
+    function loadMessages(room) {
+      currentRoom = room;
+      const q = query(collection(db, "rooms", room, "messages"), orderBy("createdAt"));
+      const messagesDiv = document.getElementById("messages");
+      onSnapshot(q, snapshot => {
+        messagesDiv.innerHTML = "";
+        snapshot.forEach(doc => {
+          const msg = doc.data();
+          const div = document.createElement("div");
+          div.className = "message";
+          div.textContent = `${msg.sender}: ${msg.text}`;
+          messagesDiv.appendChild(div);
+        });
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+      });
+    }
+
+    window.switchRoom = (room) => {
+      loadMessages(room);
+    };
+  </script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/themes/default.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background: linear-gradient(to bottom right, #dbeafe, #f0f9ff);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    header {
+      background: #2563eb;
+      color: white;
+      padding: 10px;
+      text-align: center;
+    }
+    #loginModal, #chatApp {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #loginModal.show, #chatApp.show {
+      display: flex;
+    }
+    select, input, button {
+      margin: 6px 0;
+      padding: 10px;
+      width: 90%;
+      max-width: 300px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+    }
+    .chat-container {
+      display: flex;
+      flex: 1;
+      width: 100%;
+    }
+    .sidebar {
+      width: 25%;
+      background: #e0f2fe;
+      padding: 10px;
+      overflow-y: auto;
+    }
+    .chat-box {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid #ccc;
+      background: #fff;
+    }
+    #messages {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+    .message {
+      background: #e1f5fe;
+      margin: 5px 0;
+      padding: 8px;
+      border-radius: 12px;
+    }
+    .chat-input {
+      display: flex;
+      padding: 10px;
+      gap: 5px;
+      border-top: 1px solid #ccc;
+    }
+    .chat-input input {
+      flex: 1;
+    }
+    .user-list div {
+      padding: 6px;
+      cursor: pointer;
+    }
+    .user-list div:hover {
+      background: #bae6fd;
+    }
+  </style>
+</head>
+<body>
+  <header><h2>ChatWala 💬</h2></header>
+
+  <div id="loginModal" class="show">
+    <h3>Guest Login</h3>
+    <input id="nickname" placeholder="Enter your name" />
+    <select id="gender">
+      <option value="male">♂️ Male</option>
+      <option value="female">♀️ Female</option>
+    </select>
+    <select id="country">
+      <option value="India">India</option>
+    </select>
+    <select id="state">
+      <option disabled selected>Select State</option>
+      <option>Gujarat</option>
+      <option>Maharashtra</option>
+      <option>Delhi</option>
+      <option>Karnataka</option>
+      <option>Tamil Nadu</option>
+    </select>
+    <select id="city">
+      <option disabled selected>Select City</option>
+      <option>Ahmedabad</option>
+      <option>Surat</option>
+      <option>Rajkot</option>
+      <option>Mumbai</option>
+      <option>Pune</option>
+      <option>New Delhi</option>
+      <option>Bengaluru</option>
+      <option>Chennai</option>
+    </select>
+    <button onclick="startChat()">Start Chatting</button>
+  </div>
+
+  <div id="chatApp">
+    <div class="chat-container">
+      <div class="sidebar">
+        <h4>Rooms</h4>
+        <div class="room-list">
+          <div onclick="switchRoom('General')"># General</div>
+          <div onclick="switchRoom('India')"># India</div>
+          <div onclick="switchRoom('Music')"># Music</div>
+          <div onclick="switchRoom('Sports')"># Sports</div>
+        </div>
+        <hr />
+        <h4>Users</h4>
+        <div class="user-list">
+          <div onclick="alert('Private chat with guest123')">guest123</div>
+          <div onclick="alert('Private chat with guest456')">guest456</div>
+        </div>
+      </div>
+      <div class="chat-box">
+        <div id="messages"></div>
+        <div class="chat-input">
+          <input id="msg" placeholder="Type a message..." />
+          <button onclick="toggleEmojiPicker()">😊</button>
+          <button onclick="sendMessage()">Send</button>
+          <emoji-picker id="emojiPicker" style="display:none; position:absolute; bottom:60px;"></emoji-picker>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const emojiPicker = document.getElementById('emojiPicker');
+    const msgInput = document.getElementById('msg');
+
+    function toggleEmojiPicker() {
+      emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
+    }
+    emojiPicker.addEventListener('emoji-click', e => {
+      msgInput.value += e.detail.unicode;
+      emojiPicker.style.display = 'none';
+    });
+  </script>
+</body>
+</html>
