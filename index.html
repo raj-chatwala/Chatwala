@@ -1,17 +1,157 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ChatWala 💬</title>
+
+  <!-- Firebase Compatibility SDKs (for GitHub Pages) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- Emoji‑picker element -->
+  <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/themes/default.css" />
+
+  <style>
+    :root { --primary:#2563eb; --bg:#dbeafe; }
+    *{box-sizing:border-box;font-family:sans-serif}
+    body{margin:0;min-height:100vh;display:flex;flex-direction:column;background:linear-gradient(to bottom right,var(--bg),#f0f9ff)}
+    header{background:var(--primary);color:#fff;text-align:center;padding:12px 0}
+    #loginModal,#chatApp{flex:1;display:none;align-items:center;justify-content:center;padding:20px}
+    #loginModal.show,#chatApp.show{display:flex}
+    select,input,button{padding:10px;width:90%;max-width:320px;margin:6px 0;border:1px solid #ccc;border-radius:8px}
+    button{cursor:pointer;background:var(--primary);color:#fff;border:none}
+    .chat-container{display:flex;width:100%;height:80vh}
+    .sidebar{width:26%;background:#e0f2fe;padding:10px;overflow:auto}
+    .chat-box{flex:1;display:flex;flex-direction:column;background:#fff;border-left:1px solid #ccc}
+    #messages{flex:1;overflow-y:auto;padding:10px}
+    .message{background:#e1f5fe;margin:5px 0;padding:8px;border-radius:12px}
+    .chat-input{display:flex;gap:5px;border-top:1px solid #ccc;padding:10px}
+    .chat-input input{flex:1}
+    .room-list div,.user-list div{padding:6px;cursor:pointer;border-bottom:1px solid #dbeafe}
+    .room-list div:hover,.user-list div:hover{background:#bae6fd}
+  </style>
 </head>
 <body>
-  <header style="background:#2563eb;color:#fff;padding:12px;text-align:center;">
-    <h2>ChatWala 💬</h2>
-  </header>
-  <main style="text-align:center;padding:20px;">
-    <p>Welcome to ChatWala! Please wait while we connect to the server...</p>
-  </main>
+  <header><h2>ChatWala 💬</h2></header>
+
+  <div id="loginModal" class="show">
+    <div>
+      <h3>Guest Login</h3>
+      <input id="nickname" placeholder="Enter your name" />
+      <select id="gender">
+        <option value="male">♂️ Male</option>
+        <option value="female">♀️ Female</option>
+      </select>
+      <select id="country"><option selected>India</option></select>
+      <select id="state">
+        <option disabled selected>Select State</option>
+        <option>Gujarat</option><option>Maharashtra</option><option>Delhi</option>
+        <option>Karnataka</option><option>Tamil Nadu</option>
+      </select>
+      <select id="city">
+        <option disabled selected>Select City</option>
+        <option>Ahmedabad</option><option>Surat</option><option>Mumbai</option>
+        <option>Pune</option><option>New Delhi</option><option>Bengaluru</option>
+      </select>
+      <button onclick="startChat()">Start Chatting</button>
+    </div>
+  </div>
+
+  <div id="chatApp">
+    <div class="chat-container">
+      <div class="sidebar">
+        <h4>Rooms</h4>
+        <div class="room-list">
+          <div onclick="switchRoom('General')"># General</div>
+          <div onclick="switchRoom('India')"># India</div>
+          <div onclick="switchRoom('Music')"># Music</div>
+          <div onclick="switchRoom('Sports')"># Sports</div>
+        </div>
+        <hr />
+        <h4>Users</h4>
+        <div class="user-list">
+          <div onclick="alert('Private chat with guest123')">guest123</div>
+          <div onclick="alert('Private chat with guest456')">guest456</div>
+        </div>
+      </div>
+      <div class="chat-box">
+        <div id="messages"></div>
+        <div class="chat-input">
+          <input id="msg" placeholder="Type a message..." />
+          <button onclick="toggleEmojiPicker()">😊</button>
+          <button onclick="sendMessage()">Send</button>
+          <emoji-picker id="emojiPicker" style="display:none;position:absolute;bottom:70px"></emoji-picker>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig={
+      apiKey:"AIzaSyCD9wKjeNoBu_X3kCoLkew0Or0EJWDm2zU",
+      authDomain:"chatwala-2fdab.firebaseapp.com",
+      projectId:"chatwala-2fdab",
+      storageBucket:"chatwala-2fdab.appspot.com",
+      messagingSenderId:"565068432534",
+      appId:"1:565068432534:web:9993944486a1344205aeb7"};
+    firebase.initializeApp(firebaseConfig);
+    const db=firebase.firestore();
+
+    let currentRoom="General";
+    let nickname="";
+
+    const loginModal=document.getElementById('loginModal');
+    const chatApp=document.getElementById('chatApp');
+    const messagesDiv=document.getElementById('messages');
+    const emojiPicker=document.getElementById('emojiPicker');
+    const msgInput=document.getElementById('msg');
+
+    function startChat(){
+      nickname=document.getElementById('nickname').value.trim();
+      if(!nickname){alert('Enter a name');return;}
+      loginModal.classList.remove('show');
+      chatApp.classList.add('show');
+      loadMessages(currentRoom);
+    }
+
+    async function sendMessage(){
+      const text=msgInput.value.trim();
+      if(!text) return;
+      await db.collection('rooms').doc(currentRoom).collection('messages').add({
+        text,
+        sender:nickname,
+        createdAt:firebase.firestore.FieldValue.serverTimestamp()
+      });
+      msgInput.value='';
+    }
+
+    function loadMessages(room){
+      currentRoom=room;
+      db.collection('rooms').doc(room).collection('messages').orderBy('createdAt')
+        .onSnapshot(snap=>{
+          messagesDiv.innerHTML='';
+          snap.forEach(doc=>{
+            const m=doc.data();
+            const div=document.createElement('div');
+            div.className='message';
+            div.textContent=`${m.sender}: ${m.text}`;
+            messagesDiv.appendChild(div);
+          });
+          messagesDiv.scrollTop=messagesDiv.scrollHeight;
+        });
+    }
+
+    function switchRoom(room){loadMessages(room);}
+
+    function toggleEmojiPicker(){
+      emojiPicker.style.display=emojiPicker.style.display==='none'?'block':'none';
+    }
+    emojiPicker.addEventListener('emoji-click',e=>{
+      msgInput.value+=e.detail.unicode;
+      emojiPicker.style.display='none';
+    });
+  </script>
 </body>
 </html>
