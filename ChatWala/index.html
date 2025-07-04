@@ -1,78 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ChatWala 💬 (Public & Private Rooms, Guests, Emojis)</title>
+  <title>ChatWala 💬</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyCD9wKjeNoBu_X3kCoLkew0Or0EJWDm2zU",
-      authDomain: "chatwala-2fdab.firebaseapp.com",
-      projectId: "chatwala-2fdab",
-      storageBucket: "chatwala-2fdab.appspot.com",
-      messagingSenderId: "565068432534",
-      appId: "1:565068432534:web:9993944486a1344205aeb7"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    let currentRoom = "General";
-    let nickname = "";
-
-    window.startChat = () => {
-      nickname = document.getElementById("nickname").value.trim();
-      if (!nickname) return alert("Enter a name");
-      document.getElementById("loginModal").classList.remove("show");
-      document.getElementById("chatApp").classList.add("show");
-      loadMessages(currentRoom);
-    };
-
-    window.sendMessage = async () => {
-      const msgInput = document.getElementById("msg");
-      const text = msgInput.value.trim();
-      if (text) {
-        await addDoc(collection(db, "rooms", currentRoom, "messages"), {
-          text,
-          sender: nickname,
-          createdAt: serverTimestamp()
-        });
-        msgInput.value = "";
-      }
-    };
-
-    function loadMessages(room) {
-      currentRoom = room;
-      const q = query(collection(db, "rooms", room, "messages"), orderBy("createdAt"));
-      const messagesDiv = document.getElementById("messages");
-      onSnapshot(q, snapshot => {
-        messagesDiv.innerHTML = "";
-        snapshot.forEach(doc => {
-          const msg = doc.data();
-          const div = document.createElement("div");
-          div.className = "message";
-          div.textContent = `${msg.sender}: ${msg.text}`;
-          messagesDiv.appendChild(div);
-        });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-      });
-    }
-
-    window.switchRoom = (room) => {
-      loadMessages(room);
-    };
-  </script>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/themes/default.css">
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <!-- Emoji Picker -->
+  <script src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/themes/default.css" />
   <style>
     body {
       margin: 0;
       font-family: sans-serif;
       background: linear-gradient(to bottom right, #dbeafe, #f0f9ff);
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
     }
     header {
       background: #2563eb;
@@ -81,7 +22,6 @@
       text-align: center;
     }
     #loginModal, #chatApp {
-      flex: 1;
       display: none;
       flex-direction: column;
       align-items: center;
@@ -101,8 +41,9 @@
     }
     .chat-container {
       display: flex;
-      flex: 1;
+      flex-direction: row;
       width: 100%;
+      height: 80vh;
     }
     .sidebar {
       width: 25%;
@@ -114,7 +55,6 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      border-left: 1px solid #ccc;
       background: #fff;
     }
     #messages {
@@ -211,9 +151,63 @@
   </div>
 
   <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCD9wKjeNoBu_X3kCoLkew0Or0EJWDm2zU",
+      authDomain: "chatwala-2fdab.firebaseapp.com",
+      projectId: "chatwala-2fdab",
+      storageBucket: "chatwala-2fdab.appspot.com",
+      messagingSenderId: "565068432534",
+      appId: "1:565068432534:web:9993944486a1344205aeb7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    let currentRoom = "General";
+    let nickname = "";
+
+    function startChat() {
+      nickname = document.getElementById("nickname").value.trim();
+      if (!nickname) return alert("Enter a name");
+      document.getElementById("loginModal").classList.remove("show");
+      document.getElementById("chatApp").classList.add("show");
+      loadMessages(currentRoom);
+    }
+
+    async function sendMessage() {
+      const text = document.getElementById("msg").value.trim();
+      if (text) {
+        await db.collection("rooms").doc(currentRoom).collection("messages").add({
+          text,
+          sender: nickname,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        document.getElementById("msg").value = "";
+      }
+    }
+
+    function loadMessages(room) {
+      currentRoom = room;
+      db.collection("rooms").doc(room).collection("messages").orderBy("createdAt")
+        .onSnapshot(snapshot => {
+          const messagesDiv = document.getElementById("messages");
+          messagesDiv.innerHTML = "";
+          snapshot.forEach(doc => {
+            const msg = doc.data();
+            const div = document.createElement("div");
+            div.className = "message";
+            div.textContent = `${msg.sender}: ${msg.text}`;
+            messagesDiv.appendChild(div);
+          });
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        });
+    }
+
+    function switchRoom(room) {
+      loadMessages(room);
+    }
+
     const emojiPicker = document.getElementById('emojiPicker');
     const msgInput = document.getElementById('msg');
-
     function toggleEmojiPicker() {
       emojiPicker.style.display = emojiPicker.style.display === 'none' ? 'block' : 'none';
     }
